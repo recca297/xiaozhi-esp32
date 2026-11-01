@@ -1,5 +1,6 @@
 #include "lcd_display.h"
 #include "assets/lang_config.h"
+#include "emoji_theme_manager.h"
 #include "gif/lvgl_gif.h"
 #include "lvgl_theme.h"
 #include "settings.h"
@@ -66,6 +67,7 @@ void LcdDisplay::InitializeLcdThemes() {
     auto& theme_manager = LvglThemeManager::GetInstance();
     theme_manager.RegisterTheme("light", light_theme);
     theme_manager.RegisterTheme("dark", dark_theme);
+    EmojiThemeManager::GetInstance().Init();
 }
 
 LcdDisplay::LcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel, int width,
@@ -80,6 +82,10 @@ LcdDisplay::LcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_
     // Load theme from settings
     Settings settings("display", false);
     std::string theme_name = settings.GetString("theme", "light");
+    const auto* emoji_theme = EmojiThemeManager::GetInstance().GetCurrentTheme();
+    if (emoji_theme != nullptr && emoji_theme->force_black_background) {
+        theme_name = "dark";
+    }
     current_theme_ = LvglThemeManager::GetInstance().GetTheme(theme_name);
 
     // Create a timer to hide the preview image
@@ -522,7 +528,6 @@ void LcdDisplay::SetupUI() {
     lv_obj_set_style_text_color(low_battery_label_, lv_color_white(), 0);
     lv_obj_center(low_battery_label_);
     lv_obj_add_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
-
     emoji_image_ = lv_img_create(screen);
     lv_obj_align(emoji_image_, LV_ALIGN_TOP_MID, 0,
                  text_font->line_height + lvgl_theme->spacing(8));
@@ -533,6 +538,9 @@ void LcdDisplay::SetupUI() {
     lv_obj_set_style_text_font(emoji_label_, large_icon_font, 0);
     lv_obj_set_style_text_color(emoji_label_, lvgl_theme->text_color(), 0);
     lv_label_set_text(emoji_label_, MATERIAL_SYMBOLS_ROBOT_2);
+
+    EmojiThemeManager::GetInstance().RegisterDisplay(this);
+    SetEmotion("neutral");
 }
 #if CONFIG_IDF_TARGET_ESP32P4
 #define MAX_MESSAGES 40
@@ -892,15 +900,25 @@ void LcdDisplay::SetupUI() {
 
     Display::SetupUI();  // Mark SetupUI as called
     DisplayLockGuard lock(this);
+    const auto* emoji_theme = EmojiThemeManager::GetInstance().GetCurrentTheme();
+    bool force_black = (emoji_theme != nullptr && emoji_theme->force_black_background);
+    if (force_black) {
+        auto dark_theme = LvglThemeManager::GetInstance().GetTheme("dark");
+        if (dark_theme != nullptr) {
+            current_theme_ = dark_theme;
+        }
+    }
+
     LvglTheme* lvgl_theme = static_cast<LvglTheme*>(current_theme_);
     auto text_font = lvgl_theme->text_font()->font();
     auto icon_font = lvgl_theme->icon_font()->font();
     auto large_icon_font = lvgl_theme->large_icon_font()->font();
 
     auto screen = lv_screen_active();
+    lv_color_t bg_color = force_black ? lv_color_hex(0x000000) : lvgl_theme->background_color();
     lv_obj_set_style_text_font(screen, text_font, 0);
     lv_obj_set_style_text_color(screen, lvgl_theme->text_color(), 0);
-    lv_obj_set_style_bg_color(screen, lvgl_theme->background_color(), 0);
+    lv_obj_set_style_bg_color(screen, bg_color, 0);
 
     /* Container - used as background */
     container_ = lv_obj_create(screen);
@@ -908,7 +926,7 @@ void LcdDisplay::SetupUI() {
     lv_obj_set_style_radius(container_, 0, 0);
     lv_obj_set_style_pad_all(container_, 0, 0);
     lv_obj_set_style_border_width(container_, 0, 0);
-    lv_obj_set_style_bg_color(container_, lvgl_theme->background_color(), 0);
+    lv_obj_set_style_bg_color(container_, bg_color, 0);
     lv_obj_set_style_border_color(container_, lvgl_theme->border_color(), 0);
 
     /* Bottom layer: emoji_box_ - centered display */
@@ -1077,6 +1095,8 @@ void LcdDisplay::SetupUI() {
     lv_obj_set_style_text_color(low_battery_label_, lv_color_white(), 0);
     lv_obj_center(low_battery_label_);
     lv_obj_add_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
+    EmojiThemeManager::GetInstance().RegisterDisplay(this);
+    SetEmotion("neutral");
 }
 
 void LcdDisplay::SetPreviewImage(std::unique_ptr<LvglImage> image) {
@@ -1176,6 +1196,12 @@ void LcdDisplay::ClearChatMessages() {
 #endif
 
 bool LcdDisplay::SetEmotion(const char* emotion) {
+    ESP_LOGI(TAG, "SetEmotion('%s') [Theme %u: %s]", emotion,
+             EmojiThemeManager::GetInstance().GetCurrentThemeId(),
+             get_emoji_theme_name(EmojiThemeManager::GetInstance().GetCurrentThemeId()));
+    if (emotion != nullptr) {
+        current_emotion_ = emotion;
+    }
     if (!setup_ui_called_) {
         ESP_LOGW(TAG, "SetEmotion('%s') called before SetupUI() - emotion will not be displayed!",
                  emotion);
@@ -1275,8 +1301,26 @@ bool LcdDisplay::SetEmotion(const char* emotion) {
     return shown;
 }
 
+void LcdDisplay::SetEmojiCollection(std::shared_ptr<EmojiCollection> collection) {
+    if (current_theme_ != nullptr) {
+        static_cast<LvglTheme*>(current_theme_)->set_emoji_collection(collection);
+    }
+    if (setup_ui_called_ && !current_emotion_.empty()) {
+        SetEmotion(current_emotion_.c_str());
+    }
+}
+
 void LcdDisplay::SetTheme(Theme* theme) {
     DisplayLockGuard lock(this);
+
+    const auto* emoji_theme = EmojiThemeManager::GetInstance().GetCurrentTheme();
+    bool force_black = (emoji_theme != nullptr && emoji_theme->force_black_background);
+    if (force_black) {
+        auto dark_theme = LvglThemeManager::GetInstance().GetTheme("dark");
+        if (dark_theme != nullptr) {
+            theme = dark_theme;
+        }
+    }
 
     auto lvgl_theme = static_cast<LvglTheme*>(theme);
 
@@ -1301,9 +1345,17 @@ void LcdDisplay::SetTheme(Theme* theme) {
     // Set parent text color
     lv_obj_set_style_text_font(screen, text_font, 0);
     lv_obj_set_style_text_color(screen, lvgl_theme->text_color(), 0);
+    if (force_black) {
+        lv_obj_set_style_bg_color(screen, lv_color_hex(0x000000), 0);
+    } else {
+        lv_obj_set_style_bg_color(screen, lvgl_theme->background_color(), 0);
+    }
 
     // Set background image
-    if (lvgl_theme->background_image() != nullptr) {
+    if (force_black) {
+        lv_obj_set_style_bg_image_src(container_, nullptr, 0);
+        lv_obj_set_style_bg_color(container_, lv_color_hex(0x000000), 0);
+    } else if (lvgl_theme->background_image() != nullptr) {
         lv_obj_set_style_bg_image_src(container_, lvgl_theme->background_image()->image_dsc(), 0);
     } else {
         lv_obj_set_style_bg_image_src(container_, nullptr, 0);
@@ -1313,7 +1365,8 @@ void LcdDisplay::SetTheme(Theme* theme) {
     // Update top bar background color with 50% opacity
     if (top_bar_ != nullptr) {
         lv_obj_set_style_bg_opa(top_bar_, LV_OPA_50, 0);
-        lv_obj_set_style_bg_color(top_bar_, lvgl_theme->background_color(), 0);
+        lv_obj_set_style_bg_color(
+            top_bar_, force_black ? lv_color_hex(0x000000) : lvgl_theme->background_color(), 0);
     }
 
     // Update status bar elements
@@ -1408,7 +1461,8 @@ void LcdDisplay::SetTheme(Theme* theme) {
     // Update bottom bar background color with 50% opacity
     if (bottom_bar_ != nullptr) {
         lv_obj_set_style_bg_opa(bottom_bar_, LV_OPA_50, 0);
-        lv_obj_set_style_bg_color(bottom_bar_, lvgl_theme->background_color(), 0);
+        lv_obj_set_style_bg_color(
+            bottom_bar_, force_black ? lv_color_hex(0x000000) : lvgl_theme->background_color(), 0);
     }
 #endif
 

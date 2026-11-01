@@ -21,6 +21,7 @@ set(SOURCES "audio/audio_codec.cc"
             "display/lvgl_display/lvgl_display.cc"
             "display/emote_display.cc"
             "display/lvgl_display/emoji_collection.cc"
+            "display/emoji_theme_manager.cc"
             "display/lvgl_display/lvgl_theme.cc"
             "display/lvgl_display/lvgl_font.cc"
             "display/lvgl_display/dynamic_glyph_cache.cc"
@@ -1134,6 +1135,31 @@ endif()
 
 file(GLOB COMMON_SOUNDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/common/*.ogg)
 
+# DB-Robot Emoji Theme (GIF animated emojis)
+set(DBROBOT_EMOJI_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/angry.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/confident.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/confused.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/cool.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/crying.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/delicious.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/embarrassed.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/funny.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/happy.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/kissy.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/laughing.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/loving.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/neutral.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/relaxed.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/sad.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/shocked.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/silly.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/sleepy.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/surprised.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/thinking.gif"
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/theme_dbrobot/winking.gif"
+)
+
 # If target chip is ESP32, exclude specific files to avoid build errors
 if(CONFIG_IDF_TARGET_ESP32)
     list(REMOVE_ITEM SOURCES "audio/codecs/box_audio_codec.cc"
@@ -1196,7 +1222,7 @@ if(CONFIG_BOARD_TYPE_ESP32_P4_FUNCTION_EV_BOARD)
     )
 endif()
 idf_component_register(SRCS ${SOURCES}
-                    EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS}
+                    EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS} ${DBROBOT_EMOJI_FILES}
                     INCLUDE_DIRS ${INCLUDE_DIRS}
                     WHOLE_ARCHIVE
                     PRIV_REQUIRES

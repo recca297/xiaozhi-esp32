@@ -15,6 +15,7 @@
 #include "application.h"
 #include "board.h"
 #include "display.h"
+#include "emoji_theme_manager.h"
 #include "lvgl_image.h"
 #include "lvgl_theme.h"
 #include "settings.h"
@@ -89,6 +90,15 @@ void McpServer::AddCommonTools() {
                 });
     }
 
+    AddTool(
+        "self.screen.set_emoji_theme",
+        "Set the emoji theme of the screen. 0 for default font emojis, 1 for DB-Robot GIF emojis.",
+        PropertyList({Property("theme_id", kPropertyTypeInteger, 0, 1)}),
+        [](const PropertyList& properties) -> ReturnValue {
+            int theme_id = properties["theme_id"].value<int>();
+            set_emoji_theme(static_cast<uint8_t>(theme_id));
+            return true;
+        });
     auto camera = board.GetCamera();
     if (camera) {
         AddTool("self.camera.take_photo",

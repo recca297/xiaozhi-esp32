@@ -32,6 +32,7 @@ protected:
     esp_timer_handle_t preview_timer_ = nullptr;
     std::unique_ptr<LvglImage> preview_image_cached_ = nullptr;
     bool hide_subtitle_ = false;  // Control whether to hide chat messages/subtitles
+    std::string current_emotion_ = "neutral";
 
     void InitializeLcdThemes();
     virtual bool Lock(int timeout_ms = 0) override;
@@ -52,6 +53,7 @@ public:
     virtual void SetupUI() override;
     // Add theme switching function
     virtual void SetTheme(Theme* theme) override;
+    virtual void SetEmojiCollection(std::shared_ptr<EmojiCollection> collection) override;
 
     // Set whether to hide chat messages/subtitles
     virtual void SetHideSubtitle(bool hide) override;

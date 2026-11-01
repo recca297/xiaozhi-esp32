@@ -3,6 +3,7 @@
 #include "board.h"
 #include "cjson_utils.h"
 #include "display.h"
+#include "emoji_theme_manager.h"
 #include "lvgl_theme.h"
 #if HAVE_LVGL
 #include <spi_flash_mmap.h>
@@ -356,13 +357,18 @@ bool Assets::LvglStrategy::Apply(Assets* assets, bool refresh_display_theme) {
                 }
             }
         }
-        if (light_theme != nullptr) {
-            light_theme->set_emoji_collection(custom_emoji_collection);
+        EmojiThemeManager::GetInstance().SetDefaultThemeCollection(custom_emoji_collection);
+        if (EmojiThemeManager::GetInstance().GetCurrentThemeId() == EMOJI_THEME_ID_DEFAULT) {
+            if (light_theme != nullptr) {
+                light_theme->set_emoji_collection(custom_emoji_collection);
+            }
+            if (dark_theme != nullptr) {
+                dark_theme->set_emoji_collection(custom_emoji_collection);
+            }
+            display->SetEmojiCollection(custom_emoji_collection);
+        } else {
+            EmojiThemeManager::GetInstance().ApplyCurrentTheme();
         }
-        if (dark_theme != nullptr) {
-            dark_theme->set_emoji_collection(custom_emoji_collection);
-        }
-        display->SetEmojiCollection(custom_emoji_collection);
     }
 
     cJSON* skin = cJSON_GetObjectItem(root.get(), "skin");
