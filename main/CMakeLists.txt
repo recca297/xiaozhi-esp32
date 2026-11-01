@@ -64,6 +64,9 @@ list(APPEND SOURCES
     "boards/common/sy6970.cc"
     "boards/common/system_reset.cc"
 )
+if(CONFIG_BOARD_TYPE_BREAD_COMPACT_WIFI)
+    list(APPEND SOURCES "boards/common/mochi_display.cc")
+endif()
 if(CONFIG_XIAOZHI_NETWORK_ETHERNET)
     list(APPEND SOURCES "boards/common/ethernet_board.cc")
 endif()

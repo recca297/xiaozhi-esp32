@@ -15,6 +15,10 @@
 #include <esp_lcd_panel_ops.h>
 #include <esp_lcd_panel_vendor.h>
 
+#include "mochi_display.h"
+#include "settings.h" 
+#include "esp_system.h"   // esp_restart()
+
 #ifdef SH1106
 #include <esp_lcd_panel_sh1106.h>
 #endif
@@ -50,26 +54,23 @@ private:
 
     void InitializeSsd1306Display() {
         // SSD1306 config
-        esp_lcd_panel_io_i2c_config_t io_config = {
-            .dev_addr = 0x3C,
-            .scl_speed_hz = 400 * 1000,
-            .control_phase_bytes = 1,
-            .dc_bit_offset = 6,
-            .lcd_cmd_bits = 8,
-            .lcd_param_bits = 8,
-            .on_color_trans_done = nullptr,
-            .user_ctx = nullptr,
-            .flags = {
-                .dc_low_on_data = 0,
-                .disable_control_phase = 0,
-            },
-        };
+        esp_lcd_panel_io_i2c_config_t io_config = {};
+        io_config.dev_addr = 0x3C;
+        io_config.scl_speed_hz = 400 * 1000;
+        io_config.control_phase_bytes = 1;
+        io_config.dc_bit_offset = 6;
+        io_config.lcd_cmd_bits = 8;
+        io_config.lcd_param_bits = 8;
+        io_config.on_color_trans_done = nullptr;
+        io_config.user_ctx = nullptr;
+        io_config.flags.dc_low_on_data = 0;
+        io_config.flags.disable_control_phase = 0;
 
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(display_i2c_bus_, &io_config, &panel_io_));
 
         ESP_LOGI(TAG, "Install SSD1306 driver");
         esp_lcd_panel_dev_config_t panel_config = {};
-        panel_config.reset_gpio_num = GPIO_NUM_NC;
+        panel_config.reset_gpio_num = (gpio_num_t)GPIO_NUM_NC;
         panel_config.bits_per_pixel = 1;
 
         esp_lcd_panel_ssd1306_config_t ssd1306_config = {
@@ -97,7 +98,18 @@ private:
         ESP_LOGI(TAG, "Turning display on");
         ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_, true));
 
-        display_ = new OledDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+        //display_ = new OledDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+        //display_ = new MochiDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+        Settings settings("board", false);  // read-only, dong ngay sau khi doc
+        std::string face = settings.GetString("face", "mochi");  // mac dinh mochi neu chua tung luu
+
+        if (face == "default") {
+            display_ = new OledDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT,
+                                        DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+        } else {
+            display_ = new MochiDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT,
+                                        DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+        }
     }
 
     void InitializeButtons() {
@@ -150,6 +162,37 @@ private:
     // 物联网初始化，逐步迁移到 MCP 协议
     void InitializeTools() {
         static LampController lamp(LAMP_GPIO);
+
+        auto& mcp_server = McpServer::GetInstance();
+        mcp_server.AddTool(
+            "self.screen.switch_face",
+            "Luu lua chon giao dien khuon mat (default hoac mochi) vao flash roi KHOI "
+            "DONG LAI thiet bi de ap dung thay doi. CHI goi tool nay SAU KHI da hoi va "
+            "duoc nguoi dung XAC NHAN dong y doi mat va dong y khoi dong lai — thiet bi "
+            "se mat ket noi vai giay. Tham so face phai la 'default' hoac 'mochi'.",
+            PropertyList({
+                Property("face", kPropertyTypeString)
+            }),
+            [this](const PropertyList& properties) -> ReturnValue {
+                auto face = properties["face"].value<std::string>();
+                if (face != "default" && face != "mochi") {
+                    return std::string("unknown face: ") + face;
+                }
+
+                Settings settings("board", true);  // read-write
+                settings.SetString("face", face);
+
+                // Cho vai giay de JSON reply / TTS xac nhan kip gui di truoc khi
+                // reboot, tranh cat ngang giua chung. Dung task rieng, KHONG
+                // vTaskDelay ngay trong callback nay vi no dang chay tren task
+                // xu ly MCP/protocol — block o day se treo luon viec nhan lenh khac.
+                xTaskCreate([](void*) {
+                    vTaskDelay(pdMS_TO_TICKS(1500));
+                    esp_restart();
+                }, "restart_delay", 2048, nullptr, 5, nullptr);
+
+                return std::string("Da luu, thiet bi se khoi dong lai de doi sang mat ") + face;
+            });
     }
 
 public:

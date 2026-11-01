@@ -1,0 +1,201 @@
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce2820,len:0x544
+load:0x403c8700,len:0xd14
+load:0x403cb700,len:0x2eb4
+entry 0x403c88f4
+I (34) octal_psram: vendor id    : 0x0d (AP)
+I (34) octal_psram: dev id       : 0x02 (generation 3)
+I (34) octal_psram: density      : 0x03 (64 Mbit)
+I (36) octal_psram: good-die     : 0x01 (Pass)
+I (40) octal_psram: Latency      : 0x01 (Fixed)
+I (44) octal_psram: VCC          : 0x01 (3V)
+I (48) octal_psram: SRF          : 0x01 (Fast Refresh)
+I (53) octal_psram: BurstType    : 0x01 (Hybrid Wrap)
+I (58) octal_psram: BurstLen     : 0x01 (32 Byte)
+I (62) octal_psram: Readlatency  : 0x02 (10 cycles@Fixed)
+I (67) octal_psram: DriveStrength: 0x00 (1/1)
+I (71) MSPI Timing: Enter psram timing tuning
+I (76) esp_psram: Found 8MB PSRAM device
+I (79) esp_psram: Speed: 80MHz
+I (82) cpu_start: Multicore app
+I (96) cpu_start: GPIO 44 and 43 are used as console UART I/O pins
+I (97) cpu_start: Pro cpu start user code
+I (97) cpu_start: cpu freq: 240000000 Hz
+I (98) app_init: Application information:
+I (102) app_init: Project name:     xiaozhi
+I (106) app_init: App version:      2.5.3
+I (110) app_init: Compile time:     Oct 30 2026 20:36:26
+I (115) app_init: ELF file SHA256:  4a5e21c3c...
+I (119) app_init: ESP-IDF:          v6.1
+I (123) efuse_init: Min chip rev:     v0.0
+I (126) efuse_init: Max chip rev:     v0.99 
+I (130) efuse_init: Chip rev:         v0.2
+I (134) heap_init: Initializing. RAM available for dynamic allocation:
+I (141) heap_init: At 3FCAAED0 len 0003E840 (250 KiB): RAM
+I (146) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM
+I (151) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM
+I (156) heap_init: At 600FE000 len 00001FD8 (7 KiB): RTCRAM
+I (162) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator
+I (168) spi_flash: detected chip: generic
+I (172) spi_flash: flash io: qio
+I (175) sleep_gpio: Configure to isolate all GPIO pins in sleep state
+I (181) sleep_gpio: Enable automatic switching of GPIO sleep configuration
+I (188) main_task: Started on CPU0
+I (208) esp_psram: Reserving pool of 100K of internal memory for DMA/internal allocations
+I (208) main_task: Calling app_main()
+I (218) Board: UUID=a96e4ebe-f91a-454f-a257-16061c539c51 SKU=bread-compact-wifi-lcd
+I (218) button: IoT Button Version: 4.2.2
+I (348) Display: Power management not supported
+I (418) LcdDisplay: Turning display on
+I (418) LcdDisplay: Initialize LVGL library
+I (418) LcdDisplay: Added 2560KB LVGL pool in PSRAM
+I (418) LcdDisplay: Use 2MB of PSRAM for image cache
+I (418) LcdDisplay: Initialize LVGL port
+I (428) LcdDisplay: Adding LCD display
+I (428) LVGL: Starting LVGL task
+I (428) MCP: Add tool: self.lamp.get_state
+I (438) MCP: Add tool: self.lamp.turn_on
+I (438) MCP: Add tool: self.lamp.turn_off
+I (448) Backlight: Set brightness to 75
+I (448) StateMachine: State: unknown -> starting
+W (478) i2s_common: the rx channel on I2S0 is switched from master to slave for full-duplex mode
+I (488) NoAudioCodec: Duplex channels created
+I (488) AudioCodec: Audio codec started
+I (488) Application: After board/audio init
+I (488) SystemInfo: free sram: 216987 minimal sram: 115460
+I (498) MCP: Add tool: self.get_device_status
+I (498) MCP: Add tool: self.audio_speaker.set_volume
+I (508) MCP: Add tool: self.screen.set_brightness
+I (508) MCP: Add tool: self.screen.set_theme
+I (518) MCP: Add tool: self.get_system_info [user]
+I (518) MCP: Add tool: self.reboot [user]
+I (518) MCP: Add tool: self.upgrade_firmware [user]
+I (528) MCP: Add tool: self.screen.get_info [user]
+I (528) MCP: Add tool: self.screen.snapshot [user]
+I (538) MCP: Add tool: self.screen.preview_image [user]
+I (538) MCP: Add tool: self.assets.set_download_url [user]
+I (548) WifiManager: Initializing...
+I (548) pp: pp rom version: e7ae62f
+I (548) net80211: net80211 rom version: e7ae62f
+I (568) wifi:wifi driver task: 3fcdc960, prio:23, stack:6656, core=0
+I (568) wifi:wifi firmware version: e12a754
+I (568) wifi:wifi certification version: v7.0
+I (568) wifi:config NVS flash: disabled
+I (578) wifi:config nano formatting: disabled
+I (578) wifi:Init data frame dynamic rx buffer num: 6
+I (588) wifi:Init dynamic rx mgmt buffer num: 5
+I (588) wifi:Init management short buffer num: 32
+I (588) wifi:Init dynamic tx buffer num: 32
+I (598) wifi:Init static tx FG buffer num: 2
+I (598) wifi:Init static rx buffer size: 1600
+I (608) wifi:Init static rx buffer num: 3
+I (608) wifi:Init dynamic rx buffer num: 6
+I (608) wifi_init: rx ba win: 3
+I (618) wifi_init: accept mbox: 6
+I (618) wifi_init: tcpip mbox: 16
+I (618) wifi_init: udp mbox: 6
+I (628) wifi_init: tcp mbox: 6
+I (628) wifi_init: tcp tx win: 5760
+I (628) wifi_init: tcp rx win: 5760
+I (628) wifi_init: tcp mss: 1440
+I (638) WifiManager: Initialized
+I (638) WifiBoard: Starting WiFi connection attempt
+I (648) WifiManager: Starting station
+I (648) WifiStation: Station DHCP hostname: Xiaozhi-A7F4
+I (648) phy_init: phy_version 712,87e8c20e,Apr 13 2026,18:51:10
+I (688) wifi:mode : sta (98:c3:77:a1:a7:f4)
+I (688) wifi:enable tsf
+I (698) WifiStation: Scanning saved channel 11
+I (698) WifiBoard: WiFi scanning
+I (818) WifiStation: Found AP: Smile_5GHz, BSSID: cc:71:90:49:d3:97, RSSI: -31, Channel: 11, Authmode: 4
+I (818) WifiBoard: WiFi connecting to Smile_5GHz
+W (818) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+I (878) wifi:new:<11,0>, old:<1,0>, ap:<255,255>, sta:<11,0>, prof:1, snd_ch_cfg:0x0
+I (888) wifi:state: init -> auth (0xb0)
+I (888) wifi:state: auth -> assoc (0x0)
+I (908) wifi:state: assoc -> run (0x10)
+I (978) wifi:[ADDBA]RX DELBA, reason:39, delete tid:0, initiator:1(originator)
+I (978) wifi:[ADDBA]RX DELBA, reason:39, delete tid:0, initiator:0(recipient)
+I (1018) wifi:connected with Smile_5GHz, aid = 2, channel 11, BW20, bssid = cc:71:90:49:d3:97
+I (1018) wifi:security: WPA2-PSK, phy: bgn, rssi: -31, cipher(pairwise:0x3, group:0x1), pmf:0
+I (1028) wifi:pm start, type: 1
+
+I (1028) wifi:dp: 1, bi: 102400, li: 10, scale listen interval from 1024000 us to 1024000 us
+I (1038) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+I (1098) wifi:AP's beacon interval = 102400 us, DTIM period = 1
+I (1128) wifi:<ba-add>idx:0 (ifx:0, cc:71:90:49:d3:97), tid:0, ssn:3, winSize:64
+I (2298) esp_netif_handlers: sta ip: 192.168.1.14, mask: 255.255.255.0, gw: 192.168.1.1
+I (2298) WifiStation: Got IP: 192.168.1.14
+I (2298) WifiBoard: Connected to WiFi: Smile_5GHz
+I (2298) Application: Network connected
+I (2298) StateMachine: State: starting -> activating
+I (2308) Assets: The storage free size is 22144 KB
+I (2308) Assets: The assets map size is 1216 KB (partition 8192 KB)
+I (2388) Assets: The checksum calculation time is 71 ms
+I (2388) MODEL_LOADER: Successfully load srmodels
+I (2398) Assets: Refreshing display theme...
+W (2398) EmojiCollection: Emoji not found: robot_2
+I (2398) Ota: Current version: 2.5.3
+I (2408) EspTcp: Resolved 192.168.1.50 -> 192.168.1.50
+I (2548) HttpClient: Established new connection to 192.168.1.50:8002 protocol=http cost=140
+I (2578) HttpClient: HTTP connection closed
+I (2578) Ota: No mqtt section found !
+I (2578) Ota: Current is the latest version
+I (2578) Ota: Running partition: ota_0
+W (2578) Application: Alert [link] Activation: http://xiaozhi.server.com
+049729
+W (2588) EmojiCollection: Emoji not found: link
+I (2588) AudioCodec: Set output enable to true
+I (11498) SystemInfo: free sram: 165331 minimal sram: 57896
+I (13508) Application: Activating... 1/10
+I (13518) EspTcp: Resolved 192.168.1.50 -> 192.168.1.50
+I (13518) HttpClient: Established new connection to 192.168.1.50:8002 protocol=http cost=0
+I (13538) HttpClient: HTTP connection closed
+I (16538) Application: Activating... 2/10
+I (16538) EspTcp: Resolved 192.168.1.50 -> 192.168.1.50
+I (16558) HttpClient: Established new connection to 192.168.1.50:8002 protocol=http cost=20
+I (16578) Ota: Activation successful
+I (16578) HttpClient: HTTP connection closed
+I (16578) Ota: Current version: 2.5.3
+I (16588) EspTcp: Resolved 192.168.1.50 -> 192.168.1.50
+I (16598) HttpClient: Established new connection to 192.168.1.50:8002 protocol=http cost=10
+I (16628) HttpClient: HTTP connection closed
+I (16628) Ota: No mqtt section found !
+I (16628) Ota: Current is the latest version
+I (16628) Ota: Running partition: ota_0
+I (16638) WS: WebsocketProtocol started, default URL: ws://192.168.1.50:8001/xiaozhi/v1/
+I (16638) Application: Testing initial WebSocket handshake with local server...
+I (16648) WS: Connecting to websocket server: ws://192.168.1.50:8001/xiaozhi/v1/ with version: 1
+I (16658) EspTcp: Resolved 192.168.1.50 -> 192.168.1.50
+I (16688) WebSocket: WebSocket handshake done, cost=30 tcp=20 handshake=10
+I (16688) WS: WebSocket connected successfully (WEBSOCKET_EVENT_CONNECTED): ws://192.168.1.50:8001/xiaozhi/v1/
+I (16798) WS: Session ID: 2dcd7ea9-efc3-46df-a110-6368d0bbcdca
+I (16798) WifiStation: Setting WiFi power save level: PERFORMANCE (NONE)
+I (16798) wifi:Set ps type: 0, coexist: 0
+
+I (16798) Application: Initial WebSocket handshake verified
+I (16808) Application: Activation done
+I (16808) SystemInfo: free sram: 169711 minimal sram: 55804
+I (16818) StateMachine: State: activating -> idle
+I (16828) WifiStation: Setting WiFi power save level: LOW_POWER (MAX_MODEM)
+I (16828) wifi:Set ps type: 2, coexist: 0
+
+I (16828) AfeAudioEngine: Model 0: wn9_hiesp
+I (16838) WakeWordCache: Allocated 64000 bytes in PSRAM
+I (16838) AFE_CONFIG: Set WakeNet Model: wn9_hiesp
+I (16848) AfeAudioEngine: Before AFE create: free=168847 min=55804 largest=98304
+MC Quantized wakenet9: wakeNet9_v1h24_Hi,ESP_3_0.63_0.635, tigger:v4, mode:0, p:0, (May 25 2026 15:51:00)
+I (16888) AFE: AFE Version: (1MIC_V251128)
+I (16898) AFE: Input PCM Config: total 1 channels(1 microphone, 0 playback), sample rate:16000
+I (16908) AFE: AFE Pipeline: [input] -> |VAD(WebRTC)| -> |WakeNet(wn9_hiesp,)| -> [output]
+I (16908) AFE: AFE Version: (1MIC_V251128)
+I (16918) AFE: Input PCM Config: total 1 channels(1 microphone, 0 playback), sample rate:16000
+I (16928) AFE: AFE Pipeline: [input] -> |VAD(WebRTC)| -> [output]
+I (16928) AfeAudioEngine: Initialized FD AFE, detector: WakeNet, NS: off, feed: 512, fetch: 512
+I (16938) AfeAudioEngine: After AFE create: free=147891 min=39012 largest=98304
+I (16948) Application: Startup wake word hint: Say "Hi,ESP" to wake me.
+I (16948) AudioCodec: Set input enable to true

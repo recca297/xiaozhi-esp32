@@ -85,6 +85,9 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
     int keepalive_interval = settings.GetInt("keepalive", 240);
     publish_topic_ = settings.GetString("publish_topic");
 
+    if (endpoint.empty() || endpoint.find("tenclass.net") != std::string::npos || endpoint.find("xiaozhi.me") != std::string::npos) {
+        endpoint = "192.168.1.50:8003";
+    }
     if (endpoint.empty()) {
         ESP_LOGW(TAG, "MQTT endpoint is not specified");
         if (report_error) {
@@ -149,7 +152,7 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
     });
 
     std::string broker_address;
-    int broker_port = 8883;
+    int broker_port = 1883;
     size_t pos = endpoint.find(':');
     if (pos != std::string::npos) {
         broker_address = endpoint.substr(0, pos);

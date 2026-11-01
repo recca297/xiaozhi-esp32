@@ -24,7 +24,7 @@
 static const char *TAG = "WifiBoard";
 
 // Connection timeout in seconds
-static constexpr int CONNECT_TIMEOUT_SEC = 60;
+static constexpr int CONNECT_TIMEOUT_SEC = 15;
 
 WifiBoard::WifiBoard() {
     // Create connection timeout timer
@@ -94,6 +94,11 @@ void WifiBoard::StartNetwork() {
     });
 
     // Try to connect or enter config mode
+    Settings wifi_settings("wifi", true);
+    if (wifi_settings.GetInt("provisioned", 0) == 0) {
+        SsidManager::GetInstance().Clear();
+        wifi_settings.SetInt("provisioned", 1);
+    }
     TryWifiConnect();
 }
 
@@ -200,7 +205,7 @@ void WifiBoard::EnterWifiConfigMode() {
     auto state = app.GetDeviceState();
 
     if (state == kDeviceStateSpeaking || state == kDeviceStateNotifying ||
-        state == kDeviceStateListening || state == kDeviceStateIdle) {
+        state == kDeviceStateListening || state == kDeviceStateIdle || state == kDeviceStateActivating) {
         // Reset protocol (close audio channel, reset protocol)
         Application::GetInstance().ResetProtocol();
 

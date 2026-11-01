@@ -56,8 +56,12 @@ Ota::~Ota() {
 std::string Ota::GetCheckVersionUrl() {
     Settings settings("wifi", false);
     std::string url = settings.GetString("ota_url");
-    if (url.empty()) {
-        url = CONFIG_OTA_URL;
+    if (url.empty() || url.find("tenclass.net") != std::string::npos || url.find("xiaozhi.me") != std::string::npos || url.find(":8001") != std::string::npos) {
+        url = "http://192.168.1.50:8002/xiaozhi/ota/";
+    }
+    // Downgrade https:// to http:// for local insecure HTTP
+    if (url.rfind("https://", 0) == 0) {
+        url.replace(0, 8, "http://");
     }
     return url;
 }
@@ -163,8 +167,13 @@ NetworkResult<> Ota::CheckVersion() {
         cJSON *item = NULL;
         cJSON_ArrayForEach(item, mqtt) {
             if (cJSON_IsString(item)) {
-                if (settings.GetString(item->string) != item->valuestring) {
-                    settings.SetString(item->string, item->valuestring);
+                std::string val = item->valuestring;
+                // Downgrade wss:// to ws:// for local server
+                if (strcmp(item->string, "url") == 0 && val.rfind("wss://", 0) == 0) {
+                    val.replace(0, 6, "ws://");
+                }
+                if (settings.GetString(item->string) != val) {
+                    settings.SetString(item->string, val);
                 }
             } else if (cJSON_IsNumber(item)) {
                 if (settings.GetInt(item->string) != item->valueint) {
@@ -184,8 +193,13 @@ NetworkResult<> Ota::CheckVersion() {
         cJSON *item = NULL;
         cJSON_ArrayForEach(item, websocket) {
             if (cJSON_IsString(item)) {
-                if (settings.GetString(item->string) != item->valuestring) {
-                    settings.SetString(item->string, item->valuestring);
+                std::string val = item->valuestring;
+                // Downgrade wss:// to ws:// for local server
+                if (strcmp(item->string, "url") == 0 && val.rfind("wss://", 0) == 0) {
+                    val.replace(0, 6, "ws://");
+                }
+                if (settings.GetString(item->string) != val) {
+                    settings.SetString(item->string, val);
                 }
             } else if (cJSON_IsNumber(item)) {
                 if (settings.GetInt(item->string) != item->valueint) {
@@ -238,6 +252,10 @@ NetworkResult<> Ota::CheckVersion() {
         if (cJSON_IsString(version) && cJSON_IsString(url)) {
             // Check if the version is newer, for example, 0.1.0 is newer than 0.0.1
             has_new_version_ = IsNewVersionAvailable(current_version_, firmware_version_);
+            if (firmware_url_.find("INVALID_URL") != std::string::npos ||
+                firmware_url_.find("NOT_ACTIVATED") != std::string::npos) {
+                has_new_version_ = false;
+            }
             if (has_new_version_) {
                 ESP_LOGI(TAG, "New version available: %s", firmware_version_.c_str());
             } else {
@@ -278,7 +296,11 @@ void Ota::MarkCurrentVersionValid() {
 }
 
 bool Ota::Upgrade(const std::string& firmware_url, std::function<void(int progress, size_t speed)> callback) {
-    ESP_LOGI(TAG, "Upgrading firmware from %s", firmware_url.c_str());
+    std::string url = firmware_url;
+    if (url.rfind("https://", 0) == 0) {
+        url.replace(0, 8, "http://");
+    }
+    ESP_LOGI(TAG, "Upgrading firmware from %s", url.c_str());
     esp_ota_handle_t update_handle = 0;
     auto update_partition = esp_ota_get_next_update_partition(NULL);
     if (update_partition == NULL) {
@@ -292,7 +314,7 @@ bool Ota::Upgrade(const std::string& firmware_url, std::function<void(int progre
 
     auto network = Board::GetInstance().GetNetwork();
     auto http = network->CreateHttp(0);
-    if (auto opened = http->Open("GET", firmware_url); !opened) {
+    if (auto opened = http->Open("GET", url); !opened) {
         ESP_LOGE(TAG, "Failed to open HTTP connection: %s", opened.error().ToString().c_str());
         return false;
     }

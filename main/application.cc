@@ -382,11 +382,17 @@ void Application::ActivationTask() {
     // Check for new assets version
     CheckAssetsVersion();
 
-    // Check for new firmware version
+    // Check for new firmware version and register device with local OTA (port 8002)
     CheckNewVersion();
 
     // Initialize the protocol
     InitializeProtocol();
+
+    // Perform initial test connection to WebSocket server to log WEBSOCKET_EVENT_CONNECTED
+    ESP_LOGI(TAG, "Testing initial WebSocket handshake with local server...");
+    if (protocol_->OpenAudioChannel()) {
+        ESP_LOGI(TAG, "Initial WebSocket handshake verified");
+    }
 
     // Signal completion to main loop
     xEventGroupSetBits(event_group_, MAIN_EVENT_ACTIVATION_DONE);
@@ -553,8 +559,8 @@ void Application::InitializeProtocol() {
     } else if (ota_->HasWebsocketConfig()) {
         protocol_ = std::make_unique<WebsocketProtocol>();
     } else {
-        ESP_LOGW(TAG, "No protocol specified in the OTA config, using MQTT");
-        protocol_ = std::make_unique<MqttProtocol>();
+        ESP_LOGI(TAG, "No protocol specified in the OTA config, defaulting to WebSocket for local server");
+        protocol_ = std::make_unique<WebsocketProtocol>();
     }
 
     protocol_->OnConnected([this]() { DismissAlert(); });

@@ -16,6 +16,7 @@
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
+#include "esp_lcd_panel_sh1106.h"
 #include <driver/spi_common.h>
 
 
@@ -117,37 +118,52 @@ private:
 
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(display_i2c_bus_, &io_config, &panel_io_));
 
-        ESP_LOGI(TAG, "Install SSD1306 driver");
+        ESP_LOGI(TAG, "Install SSD1306/SH1106 driver");
         esp_lcd_panel_dev_config_t panel_config = {};
         panel_config.reset_gpio_num = GPIO_NUM_NC;
         panel_config.bits_per_pixel = 1;
 
-        esp_lcd_panel_ssd1306_config_t ssd1306_config = {
-            .height = static_cast<uint8_t>(DISPLAY_HEIGHT),
-        };
-        panel_config.vendor_config = &ssd1306_config;
+        #ifdef SH1106
+            // Driver tny-robotics cho SH1106 không cần vendor_config (hoặc dùng mặc định 128x64)
+            //panel_config.vendor_config = NULL; 
+        #else
+            // Giữ nguyên cấu hình dành riêng cho panel SSD1306 gốc
+            esp_lcd_panel_ssd1306_config_t ssd1306_config = {
+                .height = static_cast<uint8_t>(DISPLAY_HEIGHT),
+            };
+            panel_config.vendor_config = &ssd1306_config;
+        #endif
 
-#ifdef SH1106
-        ESP_ERROR_CHECK(esp_lcd_new_panel_sh1106(panel_io_, &panel_config, &panel_));
-#else
-        ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(panel_io_, &panel_config, &panel_));
-#endif
-        ESP_LOGI(TAG, "SSD1306 driver installed");
+        #ifdef SH1106
+                ESP_ERROR_CHECK(esp_lcd_new_panel_sh1106(panel_io_, &panel_config, &panel_));
+        #else
+                ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1306(panel_io_, &panel_config, &panel_));
+        #endif
+                ESP_LOGI(TAG, "SSD1306/SH1106 driver installed");
 
         // Reset the display
         ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_));
+
+        ESP_LOGI(TAG, "2. Bat dau Init panel (Giao tiep I2C)...");
         if (esp_lcd_panel_init(panel_) != ESP_OK) {
             ESP_LOGE(TAG, "Failed to initialize display");
             display_ = new NoDisplay();
             return;
         }
+        ESP_LOGI(TAG, "-> Init panel thanh cong");
+
+        ESP_LOGI(TAG, "3. Bat dau Invert Color...");
         ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_, false));
+        ESP_LOGI(TAG, "-> Invert Color thanh cong");
 
         // Set the display to on
-        ESP_LOGI(TAG, "Turning display on");
+        ESP_LOGI(TAG, "4. Turning display on...");
         ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_, true));
+        ESP_LOGI(TAG, "-> Turning display on thanh cong");
 
+        ESP_LOGI(TAG, "5. Khoi tao object OledDisplay...");
         display_ = new OledDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
+        ESP_LOGI(TAG, "-> Khoi tao OledDisplay hoan tat!");
     }
 
 #elif CONFIG_WK_ESP32S3_DEV_DISPLAY_LCD

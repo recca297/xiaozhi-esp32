@@ -17,7 +17,17 @@ WebsocketProtocol::WebsocketProtocol() { event_group_handle_ = xEventGroupCreate
 WebsocketProtocol::~WebsocketProtocol() { vEventGroupDelete(event_group_handle_); }
 
 bool WebsocketProtocol::Start() {
-    // Only connect to server when audio channel is needed
+    Settings settings("websocket", false);
+    std::string url = settings.GetString("url");
+    if (url.empty() || url.find("tenclass.net") != std::string::npos ||
+        url.find("xiaozhi.me") != std::string::npos ||
+        url.find("/ws") != std::string::npos) {
+        url = "ws://192.168.1.50:8001/xiaozhi/v1/";
+    }
+    if (url.rfind("wss://", 0) == 0) {
+        url.replace(0, 6, "ws://");
+    }
+    ESP_LOGI(TAG, "WebsocketProtocol started, default URL: %s", url.c_str());
     return true;
 }
 
@@ -79,6 +89,15 @@ void WebsocketProtocol::CloseAudioChannel(bool send_goodbye) {
 bool WebsocketProtocol::OpenAudioChannel() {
     Settings settings("websocket", false);
     std::string url = settings.GetString("url");
+    if (url.empty() || url.find("tenclass.net") != std::string::npos ||
+        url.find("xiaozhi.me") != std::string::npos ||
+        url.find("/ws") != std::string::npos) {
+        url = "ws://192.168.1.50:8001/xiaozhi/v1/";
+    }
+    // Downgrade wss:// to ws:// for local server
+    if (url.rfind("wss://", 0) == 0) {
+        url.replace(0, 6, "ws://");
+    }
     std::string token = settings.GetString("token");
     int version = settings.GetInt("version");
     if (version != 0) {
@@ -183,6 +202,7 @@ bool WebsocketProtocol::OpenAudioChannel() {
         SetError(Lang::Strings::SERVER_NOT_CONNECTED, url);
         return false;
     }
+    ESP_LOGI(TAG, "WebSocket connected successfully (WEBSOCKET_EVENT_CONNECTED): %s", url.c_str());
 
     // Send hello message to describe the client
     auto message = GetHelloMessage();

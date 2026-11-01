@@ -5,7 +5,10 @@
         {
             "name": "bread-compact-wifi-lcd",
             "sdkconfig_append": [
-                "CONFIG_LCD_ST7789_240X320=y"
+                "CONFIG_LCD_ST7789_240X320=y",
+                "CONFIG_OTA_URL=\"http://192.168.1.50:8001/xiaozhi/ota/\"",
+                "CONFIG_ESP_TLS_INSECURE=y",
+                "CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y"
             ]
         }
     ]
