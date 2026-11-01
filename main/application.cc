@@ -571,7 +571,9 @@ void Application::InitializeProtocol() {
     } else if (ota_->HasWebsocketConfig()) {
         protocol_ = std::make_unique<WebsocketProtocol>();
     } else {
-        ESP_LOGI(TAG, "No protocol specified in the OTA config, defaulting to WebSocket for local server");
+        ESP_LOGI(
+            TAG,
+            "No protocol specified in the OTA config, defaulting to WebSocket for local server");
         protocol_ = std::make_unique<WebsocketProtocol>();
     }
 
@@ -614,6 +616,7 @@ void Application::InitializeProtocol() {
             ESP_LOGW(TAG, "Incoming JSON message has no type");
             return;
         }
+        ESP_LOGI(TAG, "Incoming JSON type: %s", type->valuestring);
         if (strcmp(type->valuestring, "notify") == 0) {
             auto audio_url = cJSON_GetObjectItem(root, "audio_url");
             if (!cJSON_IsString(audio_url) || audio_url->valuestring[0] == '\0') {
@@ -700,6 +703,10 @@ void Application::InitializeProtocol() {
             }
         } else if (strcmp(type->valuestring, "llm") == 0) {
             auto emotion = cJSON_GetObjectItem(root, "emotion");
+            auto text = cJSON_GetObjectItem(root, "text");
+            ESP_LOGI(TAG, ">> [SERVER LLM EMOTION] emotion='%s', text='%s'",
+                     (emotion && cJSON_IsString(emotion)) ? emotion->valuestring : "NONE",
+                     (text && cJSON_IsString(text)) ? text->valuestring : "NONE");
             if (cJSON_IsString(emotion)) {
                 Schedule([display, emotion_str = std::string(emotion->valuestring)]() {
                     display->SetEmotion(emotion_str.c_str());
@@ -739,10 +746,9 @@ void Application::InitializeProtocol() {
             if (cJSON_IsObject(payload)) {
                 CJsonStringUniquePtr payload_json(cJSON_PrintUnformatted(payload));
                 if (payload_json) {
-                    Schedule(
-                        [this, display, payload_str = std::string(payload_json.get())]() {
-                            display->SetChatMessage("system", payload_str.c_str());
-                        });
+                    Schedule([this, display, payload_str = std::string(payload_json.get())]() {
+                        display->SetChatMessage("system", payload_str.c_str());
+                    });
                 }
             } else {
                 ESP_LOGW(TAG, "Invalid custom message format: missing payload");

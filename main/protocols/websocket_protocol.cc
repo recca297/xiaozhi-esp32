@@ -20,8 +20,7 @@ bool WebsocketProtocol::Start() {
     Settings settings("websocket", false);
     std::string url = settings.GetString("url");
     if (url.empty() || url.find("tenclass.net") != std::string::npos ||
-        url.find("xiaozhi.me") != std::string::npos ||
-        url.find("/ws") != std::string::npos) {
+        url.find("xiaozhi.me") != std::string::npos || url.find("/ws") != std::string::npos) {
         url = "ws://192.168.1.50:8001/xiaozhi/v1/";
     }
     if (url.rfind("wss://", 0) == 0) {
@@ -90,8 +89,7 @@ bool WebsocketProtocol::OpenAudioChannel() {
     Settings settings("websocket", false);
     std::string url = settings.GetString("url");
     if (url.empty() || url.find("tenclass.net") != std::string::npos ||
-        url.find("xiaozhi.me") != std::string::npos ||
-        url.find("/ws") != std::string::npos) {
+        url.find("xiaozhi.me") != std::string::npos || url.find("/ws") != std::string::npos) {
         url = "ws://192.168.1.50:8001/xiaozhi/v1/";
     }
     // Downgrade wss:// to ws:// for local server
@@ -237,6 +235,7 @@ std::string WebsocketProtocol::GetHelloMessage() {
     cJSON_AddBoolToObject(features, "aec", true);
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
+    cJSON_AddBoolToObject(features, "emoji", true);
     cJSON_AddItemToObject(root, "features", features);
     AddTextFontCapabilities(root);
     cJSON_AddStringToObject(root, "transport", "websocket");
