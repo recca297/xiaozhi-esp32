@@ -88,7 +88,7 @@ private:
     void InitDefaultTheme();
     void InitDbrobotTheme();
 
-    uint8_t current_theme_id_ = EMOJI_THEME_ID_DBROBOT;
+    uint8_t current_theme_id_ = EMOJI_THEME_ID_DEFAULT;
     std::vector<EmojiSet_t> themes_;
     Display* display_ = nullptr;
     bool initialized_ = false;

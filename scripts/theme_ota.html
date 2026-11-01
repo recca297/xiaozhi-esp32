@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XiaoZhi Theme OTA Manager</title>
+  <style>
+    :root {
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    .container {
+      width: 100%;
+      max-width: 860px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #60a5fa;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .header p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+    .device-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .device-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #64748b;
+    }
+    .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-dot.offline { background: var(--danger); }
+    .device-mac {
+      font-family: monospace;
+      font-weight: 600;
+      background: #0f172a;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .btn-refresh {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .btn-refresh:hover {
+      background: #334155;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 24px;
+      margin-bottom: 30px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: #60a5fa;
+    }
+    .card-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .badge-otto { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-db { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .card-icon {
+      font-size: 40px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 20px;
+      flex-grow: 1;
+    }
+    .specs-list {
+      list-style: none;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      background: #0f172a;
+      padding: 12px 16px;
+      border-radius: 8px;
+    }
+    .specs-list li {
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .specs-list li:last-child { margin-bottom: 0; }
+    .specs-list strong { color: var(--text); }
+    .btn-action {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .btn-action:hover {
+      background: var(--primary-hover);
+    }
+    .btn-action:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .btn-db {
+      background: #059669;
+    }
+    .btn-db:hover {
+      background: #047857;
+    }
+    /* Modal / Progress Overlay */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 480px;
+      padding: 32px;
+      text-align: center;
+    }
+    .modal-card h3 {
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #334155;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: #3b82f6;
+      transition: width 0.4s ease;
+    }
+    .log-box {
+      font-family: monospace;
+      font-size: 13px;
+      color: #94a3b8;
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: left;
+      height: 120px;
+      overflow-y: auto;
+      margin-top: 16px;
+      border: 1px solid #334155;
+    }
+    .btn-close {
+      margin-top: 20px;
+      background: #334155;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>⚡ XiaoZhi Theme OTA Manager</h1>
+      <p>Nạp trực tiếp bộ giao diện & emoji qua Wi-Fi OTA mà không cần cắm cáp</p>
+    </div>
+
+    <div class="device-bar">
+      <div class="device-info">
+        <div id="statusDot" class="status-dot"></div>
+        <span>Thiết bị:</span>
+        <span id="deviceMac" class="device-mac">98:c3:77:a1:a7:f4</span>
+        <span id="statusText" style="font-size: 13px; color: var(--text-muted);">(Đang kiểm tra kết nối...)</span>
+      </div>
+      <div>
+        <button class="btn-refresh" onclick="checkStatus()">🔄 Kiểm tra trạng thái</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Theme Otto -->
+      <div class="card">
+        <span class="card-badge badge-otto">Robot Style</span>
+        <div class="card-icon">🤖</div>
+        <div class="card-title">Theme Otto</div>
+        <div class="card-desc">
+          Bộ emoji hoạt hoạ robot Otto sinh động, biểu cảm vui vẻ, ngộ nghĩnh. Đã nhúng sẵn WakeNet model đánh thức.
+        </div>
+        <ul class="specs-list">
+          <li><span>Số lượng Emoji:</span> <strong>21 Biểu cảm GIF</strong></li>
+          <li><span>Độ phân giải:</span> <strong>240 × 240 (LCD)</strong></li>
+          <li><span>Dung lượng:</span> <strong>1.22 MB (assets_otto.bin)</strong></li>
+          <li><span>Địa chỉ Flash:</span> <strong>0x800000 (OTA)</strong></li>
+        </ul>
+        <button class="btn-action" onclick="flashTheme('otto')">
+          🚀 Nạp Theme Otto qua OTA
+        </button>
+      </div>
+
+      <!-- Theme DB-Robot -->
+      <div class="card">
+        <span class="card-badge badge-db">Futuristic</span>
+        <div class="card-icon">🦾</div>
+        <div class="card-title">Theme DB-Robot</div>
+        <div class="card-desc">
+          Bộ emoji mắt LED công nghệ cao phong cách tương lai (ngầu, AI hiện đại, chuyển động mượt mà). Đã nhúng sẵn WakeNet model.
+        </div>
+        <ul class="specs-list">
+          <li><span>Số lượng Emoji:</span> <strong>26 Biểu cảm GIF</strong></li>
+          <li><span>Độ phân giải:</span> <strong>240 × 240 (LCD)</strong></li>
+          <li><span>Dung lượng:</span> <strong>2.03 MB (assets_dbrobot.bin)</strong></li>
+          <li><span>Địa chỉ Flash:</span> <strong>0x800000 (OTA)</strong></li>
+        </ul>
+        <button class="btn-action btn-db" onclick="flashTheme('dbrobot')">
+          🚀 Nạp Theme DB-Robot qua OTA
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress Modal -->
+  <div id="progressModal" class="modal-overlay">
+    <div class="modal-card">
+      <h3 id="modalTitle">Đang chuẩn bị nạp OTA...</h3>
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+      <div id="modalStatus" style="font-size: 14px; color: #60a5fa;">Đang gửi lệnh đến thiết bị...</div>
+      <div id="logBox" class="log-box"></div>
+      <button id="btnClose" class="btn-close" style="display: none;" onclick="closeModal()">Đóng</button>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const DEVICE_ID = urlParams.get('deviceId') || '98:c3:77:a1:a7:f4';
+    const SERVER_HOST = window.location.hostname || '192.168.1.50';
+    
+    // Automatic token retrieval from Control Panel localStorage
+    let token = '';
+    try {
+      const localToken = localStorage.getItem('token');
+      if (localToken) {
+        token = JSON.parse(localToken).token || localToken;
+      }
+    } catch (e) {}
+
+    document.getElementById('deviceMac').innerText = DEVICE_ID;
+
+    function addLog(msg) {
+      const box = document.getElementById('logBox');
+      const time = new Date().toLocaleTimeString();
+      box.innerHTML += `<div>[${time}] ${msg}</div>`;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function callMcpTool(name, args = {}) {
+      const res = await fetch(`/xiaozhi/device/tools/call/${DEVICE_ID}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ name: name, arguments: args })
+      });
+      return await res.json();
+    }
+
+    async function checkStatus() {
+      const dot = document.getElementById('statusDot');
+      const txt = document.getElementById('statusText');
+      txt.innerText = '(Đang kiểm tra...)';
+      try {
+        const res = await callMcpTool('self.get_device_status');
+        if (res.code === 0) {
+          dot.className = 'status-dot online';
+          txt.innerText = '● Thiết bị đang Online (Sẵn sàng nạp OTA)';
+          txt.style.color = 'var(--success)';
+        } else {
+          dot.className = 'status-dot offline';
+          txt.innerText = `● Chưa kết nối: ${res.msg || 'Thiết bị đang Standby hoặc Offline'}`;
+          txt.style.color = 'var(--danger)';
+        }
+      } catch (err) {
+        dot.className = 'status-dot offline';
+        txt.innerText = '● Lỗi kết nối đến máy chủ';
+        txt.style.color = 'var(--danger)';
+      }
+    }
+
+    async function flashTheme(theme) {
+      const modal = document.getElementById('progressModal');
+      const title = document.getElementById('modalTitle');
+      const status = document.getElementById('modalStatus');
+      const fill = document.getElementById('progressFill');
+      const logBox = document.getElementById('logBox');
+      const btnClose = document.getElementById('btnClose');
+
+      modal.classList.add('active');
+      logBox.innerHTML = '';
+      btnClose.style.display = 'none';
+      fill.style.width = '10%';
+
+      const filename = (theme === 'otto') ? 'assets_otto.bin' : 'assets_dbrobot.bin';
+      const downloadUrl = `http://${SERVER_HOST}:8002/${filename}`;
+
+      title.innerText = `Nạp Theme ${theme === 'otto' ? 'Otto' : 'DB-Robot'} qua Wi-Fi OTA`;
+      status.innerText = 'Bước 1: Kiểm tra kết nối thiết bị...';
+      addLog(`Mục tiêu OTA: ${downloadUrl}`);
+
+      try {
+        addLog('Đang gửi lệnh MCP: self.assets.set_download_url...');
+        fill.style.width = '35%';
+        status.innerText = 'Bước 2: Cài đặt URL tải về cho thiết bị...';
+
+        const setRes = await callMcpTool('self.assets.set_download_url', { url: downloadUrl });
+        if (setRes.code !== 0) {
+          throw new Error(setRes.msg || 'Không thể gửi URL tải về (thiết bị có thể đang Offline)');
+        }
+        addLog('Đã lưu URL tải về vào NVS của ESP32!');
+        fill.style.width = '65%';
+
+        status.innerText = 'Bước 3: Khởi động lại ESP32 để nạp theme...';
+        addLog('Đang gửi lệnh MCP: self.reboot...');
+        await callMcpTool('self.reboot').catch(() => {});
+        
+        fill.style.width = '100%';
+        status.innerText = '🎉 Lệnh nạp thành công! Thiết bị đang tải & nạp...';
+        status.style.color = 'var(--success)';
+        addLog('✅ ESP32 đang khởi động lại và tải file qua Wi-Fi!');
+        addLog('📺 Hãy nhìn vào màn hình LCD của ESP32: Bạn sẽ thấy thanh tiến trình tải % và logo nạp theme.');
+        addLog('Sau khi đạt 100%, thiết bị sẽ tự áp dụng theme mới.');
+      } catch (err) {
+        fill.style.width = '100%';
+        fill.style.background = 'var(--danger)';
+        status.innerText = '❌ Quá trình nạp thất bại!';
+        status.style.color = 'var(--danger)';
+        addLog(`Lỗi: ${err.message}`);
+        addLog('Gợi ý: Hãy đảm bảo ESP32 đã bật nguồn và kết nối Wi-Fi.');
+      } finally {
+        btnClose.style.display = 'inline-block';
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('progressModal').classList.remove('active');
+      document.getElementById('progressFill').style.background = 'var(--primary)';
+      checkStatus();
+    }
+
+    // Auto check on load
+    window.onload = () => {
+      checkStatus();
+    };
+  </script>
+</body>
+</html>
+

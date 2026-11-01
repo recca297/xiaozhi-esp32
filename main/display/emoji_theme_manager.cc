@@ -56,9 +56,9 @@ void EmojiThemeManager::Init() {
 
     // Load saved theme preference from NVS (defaults to EMOJI_THEME_ID_DBROBOT)
     Settings settings("display");
-    int saved_theme = settings.GetInt("emoji_theme", EMOJI_THEME_ID_DBROBOT);
+    int saved_theme = settings.GetInt("emoji_theme", EMOJI_THEME_ID_DEFAULT);
     if (saved_theme < 0 || saved_theme >= (int)themes_.size()) {
-        saved_theme = EMOJI_THEME_ID_DBROBOT;
+        saved_theme = EMOJI_THEME_ID_DEFAULT;
     }
     current_theme_id_ = static_cast<uint8_t>(saved_theme);
     ApplyCurrentTheme();
@@ -263,6 +263,7 @@ void EmojiThemeManager::SetDefaultThemeCollection(std::shared_ptr<EmojiCollectio
     if (themes_.size() > EMOJI_THEME_ID_DEFAULT) {
         themes_[EMOJI_THEME_ID_DEFAULT].collection = collection;
         themes_[EMOJI_THEME_ID_DEFAULT].is_font_fallback = (collection == nullptr);
+        themes_[EMOJI_THEME_ID_DEFAULT].force_black_background = (collection != nullptr);
     }
 }
 

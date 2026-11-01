@@ -857,8 +857,19 @@ def get_emoji_collection_path(default_emoji_collection, noto_fonts_path, project
     if not default_emoji_collection:
         return None
     
+    # Direct directory path support
+    if os.path.exists(default_emoji_collection) and os.path.isdir(default_emoji_collection):
+        return default_emoji_collection
+
+    # Special handling for dbrobot collection
+    if default_emoji_collection in ('dbrobot', 'theme_dbrobot', 'dbrobot-gif'):
+        if project_root:
+            dbrobot_path = os.path.join(project_root, 'main', 'assets', 'theme_dbrobot')
+            if os.path.exists(dbrobot_path):
+                return dbrobot_path
+
     # Special handling for otto-gif collection
-    if default_emoji_collection == 'otto-gif':
+    if default_emoji_collection in ('otto', 'otto-gif', 'theme_otto'):
         if project_root:
             otto_gif_path = os.path.join(project_root, 'managed_components', 
                                         'txp666__otto-emoji-gif-component', 'gifs')

@@ -16,6 +16,7 @@
 #include <noto_font_bundle.h>
 
 #include <cstring>
+#include <unordered_set>
 
 #define TAG "Assets"
 #define PARTITION_LABEL "assets"
@@ -339,6 +340,7 @@ bool Assets::LvglStrategy::Apply(Assets* assets, bool refresh_display_theme) {
     cJSON* emoji_collection = cJSON_GetObjectItem(root.get(), "emoji_collection");
     if (cJSON_IsArray(emoji_collection)) {
         auto custom_emoji_collection = std::make_shared<EmojiCollection>();
+        std::unordered_set<std::string> loaded_names;
         int emoji_count = cJSON_GetArraySize(emoji_collection);
         for (int i = 0; i < emoji_count; i++) {
             cJSON* emoji = cJSON_GetArrayItem(emoji_collection, i);
@@ -354,21 +356,49 @@ bool Assets::LvglStrategy::Apply(Assets* assets, bool refresh_display_theme) {
                     }
                     custom_emoji_collection->AddEmoji(name->valuestring,
                                                       new LvglRawImage(ptr, size));
+                    loaded_names.insert(name->valuestring);
                 }
             }
         }
+
+        // Add assistant state & variant aliases if not already defined in the asset collection
+        auto add_alias_if_missing = [&](const std::string& alias, const std::string& target) {
+            if (loaded_names.find(alias) == loaded_names.end() &&
+                loaded_names.find(target) != loaded_names.end()) {
+                for (int j = 0; j < emoji_count; j++) {
+                    cJSON* em = cJSON_GetArrayItem(emoji_collection, j);
+                    cJSON* em_name = cJSON_GetObjectItem(em, "name");
+                    cJSON* em_file = cJSON_GetObjectItem(em, "file");
+                    if (em_name && em_file && target == em_name->valuestring) {
+                        void* target_ptr = nullptr;
+                        size_t target_size = 0;
+                        if (assets->GetAssetData(em_file->valuestring, target_ptr, target_size)) {
+                            custom_emoji_collection->AddEmoji(
+                                alias, new LvglRawImage(target_ptr, target_size));
+                            loaded_names.insert(alias);
+                            break;
+                        }
+                    }
+                }
+            }
+        };
+
+        add_alias_if_missing("speaking", "happy");
+        add_alias_if_missing("listening", "neutral");
+        add_alias_if_missing("wakeup", "surprised");
+        add_alias_if_missing("idle", "sleepy");
+        add_alias_if_missing("anger", "angry");
+        add_alias_if_missing("scare", "embarrassed");
+        add_alias_if_missing("buxue", "winking");
+        add_alias_if_missing("robot", "neutral");
+        add_alias_if_missing("robot_2", "neutral");
+        add_alias_if_missing("staticstate", "neutral");
+        add_alias_if_missing("start", "neutral");
+
         EmojiThemeManager::GetInstance().SetDefaultThemeCollection(custom_emoji_collection);
-        if (EmojiThemeManager::GetInstance().GetCurrentThemeId() == EMOJI_THEME_ID_DEFAULT) {
-            if (light_theme != nullptr) {
-                light_theme->set_emoji_collection(custom_emoji_collection);
-            }
-            if (dark_theme != nullptr) {
-                dark_theme->set_emoji_collection(custom_emoji_collection);
-            }
-            display->SetEmojiCollection(custom_emoji_collection);
-        } else {
-            EmojiThemeManager::GetInstance().ApplyCurrentTheme();
-        }
+        ESP_LOGI(TAG,
+                 "External emoji assets detected - switching active theme to asset collection");
+        EmojiThemeManager::GetInstance().SetTheme(EMOJI_THEME_ID_DEFAULT, false);
     }
 
     cJSON* skin = cJSON_GetObjectItem(root.get(), "skin");
