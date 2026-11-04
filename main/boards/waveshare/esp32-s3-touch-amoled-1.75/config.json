@@ -8,7 +8,11 @@
             "sdkconfig_append": [
                 "CONFIG_USE_WECHAT_MESSAGE_STYLE=n",
                 "CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_AMOLED_1_75=y",
-                "CONFIG_USE_DEVICE_AEC=y"
+                "CONFIG_USE_DEVICE_AEC=y",
+                "CONFIG_OTA_URL=\"http://192.168.1.50:8001/xiaozhi/ota/\"",
+                "CONFIG_ESP_TLS_INSECURE=y",
+                "CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y",
+                "CONFIG_WIFI_HOTSPOT_SSID_PREFIX=\"ReccaRobot\""
             ]
         },
         {
@@ -16,7 +20,11 @@
             "sdkconfig_append": [
                 "CONFIG_USE_WECHAT_MESSAGE_STYLE=n",
                 "CONFIG_BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_AMOLED_1_75C=y",
-                "CONFIG_USE_DEVICE_AEC=y"
+                "CONFIG_USE_DEVICE_AEC=y",
+                "CONFIG_OTA_URL=\"http://192.168.1.50:8001/xiaozhi/ota/\"",
+                "CONFIG_ESP_TLS_INSECURE=y",
+                "CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY=y",
+                "CONFIG_WIFI_HOTSPOT_SSID_PREFIX=\"ReccaRobot\""
             ]
         }
     ]

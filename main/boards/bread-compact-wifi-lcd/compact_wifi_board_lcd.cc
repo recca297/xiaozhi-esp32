@@ -59,6 +59,18 @@ static const gc9a01_lcd_init_cmd_t gc9107_lcd_init_cmds[] = {
  
 #define TAG "CompactWifiBoardLCD"
 
+class CustomLcdDisplay : public SpiLcdDisplay {
+public:
+    using SpiLcdDisplay::SpiLcdDisplay;
+
+    virtual bool SetEmotion(const char* emotion) override {
+        if (strcmp(emotion, "neutral") == 0 && Application::GetInstance().GetDeviceState() == kDeviceStateIdle) {
+            return SpiLcdDisplay::SetEmotion("sleepy");
+        }
+        return SpiLcdDisplay::SetEmotion(emotion);
+    }
+};
+
 class CompactWifiBoardLCD : public WifiBoard {
 private:
  
@@ -118,7 +130,7 @@ private:
 #ifdef  LCD_TYPE_GC9A01_SERIAL
         panel_config.vendor_config = &gc9107_vendor_config;
 #endif
-        display_ = new SpiLcdDisplay(panel_io, panel,
+        display_ = new CustomLcdDisplay(panel_io, panel,
                                     DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
 

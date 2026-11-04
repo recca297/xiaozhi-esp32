@@ -1093,6 +1093,12 @@ menu "WiFi Configuration Method"
         default y
         help
             Use WiFi Hotspot to transmit WiFi configuration data
+    config WIFI_HOTSPOT_SSID_PREFIX
+        string "WiFi Hotspot SSID Prefix"
+        default "ReccaRobot"
+        depends on USE_HOTSPOT_WIFI_PROVISIONING
+        help
+            Prefix used for WiFi Hotspot configuration AP SSID (e.g., ReccaRobot-XXXX) and DHCP hostname.
     config USE_ESP_BLUFI_WIFI_PROVISIONING
         bool "ESP-BluFi"
         select BT_ENABLED

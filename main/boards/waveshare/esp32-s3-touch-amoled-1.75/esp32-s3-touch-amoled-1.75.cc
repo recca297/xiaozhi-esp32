@@ -13,6 +13,8 @@
 #include "i2c_device.h"
 
 #include <esp_log.h>
+#include <esp_heap_caps.h>
+#include <esp_lcd_panel_interface.h>
 #include <esp_lcd_panel_vendor.h>
 #include <driver/i2c_master.h>
 #include <driver/spi_master.h>
@@ -77,6 +79,47 @@ static const co5300_lcd_init_cmd_t vendor_specific_init[] = {
     {0x29, NULL, 0, 0},
 };
 
+static esp_err_t (*s_orig_draw_bitmap)(esp_lcd_panel_t* panel, int x_start, int y_start, int x_end, int y_end, const void* color_data) = nullptr;
+static uint16_t* s_rot_buf = nullptr;
+static size_t s_rot_buf_pixels = 0;
+
+static esp_err_t co5300_draw_bitmap_rot270_cw(esp_lcd_panel_t* panel, int x_start, int y_start, int x_end, int y_end, const void* color_data) {
+    int w = x_end - x_start;
+    int h = y_end - y_start;
+    if (w <= 0 || h <= 0 || color_data == nullptr) {
+        return ESP_OK;
+    }
+
+    size_t pixels = static_cast<size_t>(w) * static_cast<size_t>(h);
+    if (pixels > s_rot_buf_pixels) {
+        if (s_rot_buf) {
+            heap_caps_free(s_rot_buf);
+        }
+        s_rot_buf = static_cast<uint16_t*>(heap_caps_malloc(pixels * sizeof(uint16_t), MALLOC_CAP_DMA));
+        s_rot_buf_pixels = s_rot_buf ? pixels : 0;
+    }
+    if (!s_rot_buf) {
+        return s_orig_draw_bitmap(panel, x_start, y_start, x_end, y_end, color_data);
+    }
+
+    const uint16_t* src = static_cast<const uint16_t*>(color_data);
+    // Rotate 270 degrees clockwise (90 degrees counter-clockwise):
+    // Logical (dx, dy) in [0..w, 0..h] -> In rotated buffer: row = (w - 1 - dx), col = dy
+    // where rotated buffer width is h, height is w.
+    for (int dy = 0; dy < h; dy++) {
+        const uint16_t* src_row = src + dy * w;
+        for (int dx = 0; dx < w; dx++) {
+            s_rot_buf[(w - 1 - dx) * h + dy] = src_row[dx];
+        }
+    }
+
+    int hw_x_start = y_start;
+    int hw_x_end = y_end;
+    int hw_y_start = DISPLAY_WIDTH - x_end;
+    int hw_y_end = DISPLAY_WIDTH - x_start;
+    return s_orig_draw_bitmap(panel, hw_x_start, hw_y_start, hw_x_end, hw_y_end, s_rot_buf);
+}
+
 // 在waveshare_amoled_1_75类之前添加新的显示类
 class CustomLcdDisplay : public SpiLcdDisplay {
 public:
@@ -108,7 +151,15 @@ public:
         : SpiLcdDisplay(io_handle, panel_handle,
                         width, height, offset_x, offset_y, mirror_x, mirror_y, swap_xy) {
         // Note: UI customization should be done in SetupUI(), not in constructor
-        // to ensure lvgl objects are created before accessing them
+        DisplayLockGuard lock(this);
+        lv_display_add_event_cb(display_, rounder_event_cb, LV_EVENT_INVALIDATE_AREA, NULL);
+    }
+
+    virtual bool SetEmotion(const char* emotion) override {
+        if (strcmp(emotion, "neutral") == 0 && Application::GetInstance().GetDeviceState() == kDeviceStateIdle) {
+            return SpiLcdDisplay::SetEmotion("sleepy");
+        }
+        return SpiLcdDisplay::SetEmotion(emotion);
     }
 
     virtual void SetupUI() override {
@@ -180,8 +231,10 @@ private:
 
     void InitializeTca9554(void) {
         esp_err_t ret = esp_io_expander_new_i2c_tca9554(i2c_bus_, I2C_ADDRESS, &io_expander);
-        if (ret != ESP_OK)
-            ESP_LOGE(TAG, "TCA9554 create returned error");
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "TCA9554 create returned error: %d", ret);
+            return;
+        }
         ret = esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_4, IO_EXPANDER_INPUT);
         ESP_ERROR_CHECK(ret);
     }
@@ -213,11 +266,20 @@ private:
             app.ToggleChatState();
         });
 
+        boot_button_.OnLongPress([this]() {
+            EnterWifiConfigMode();
+        });
+
 #if CONFIG_USE_DEVICE_AEC
         boot_button_.OnDoubleClick([this]() {
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateIdle) {
-                app.SetAecMode(app.GetAecMode() == kAecOff ? kAecOnDeviceSide : kAecOff);
+                bool aec_on = (app.GetAecMode() == kAecOff);
+                app.SetAecMode(aec_on ? kAecOnDeviceSide : kAecOff);
+                auto display = GetDisplay();
+                if (display) {
+                    display->ShowNotification(aec_on ? "AEC On" : "AEC Off", 3000);
+                }
             }
         });
 #endif
@@ -258,9 +320,25 @@ private:
         esp_lcd_panel_set_gap(panel, 0x06, 0);
         esp_lcd_panel_reset(panel);
         esp_lcd_panel_init(panel);
+
+        // Clear full GRAM to black (0x0000) so no uninitialized green RAM can ever show
+        uint16_t* black_block = (uint16_t*)heap_caps_calloc(480 * 20, sizeof(uint16_t), MALLOC_CAP_DMA);
+        if (black_block) {
+            esp_lcd_panel_set_gap(panel, 0, 0);
+            for (int y = 0; y < 480; y += 20) {
+                esp_lcd_panel_draw_bitmap(panel, 0, y, 480, y + 20, black_block);
+            }
+            free(black_block);
+            esp_lcd_panel_set_gap(panel, 0x06, 0);
+        }
         esp_lcd_panel_invert_color(panel, false);
+        esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY);
         esp_lcd_panel_mirror(panel, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
         esp_lcd_panel_disp_on_off(panel, true);
+        s_rot_buf_pixels = DISPLAY_WIDTH * 20;
+        s_rot_buf = static_cast<uint16_t*>(heap_caps_malloc(s_rot_buf_pixels * sizeof(uint16_t), MALLOC_CAP_DMA));
+        s_orig_draw_bitmap = panel->draw_bitmap;
+        panel->draw_bitmap = co5300_draw_bitmap_rot270_cw;
         display_ = new CustomLcdDisplay(panel_io, panel,
                                         DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
         backlight_ = new CustomBacklight(panel_io);
@@ -279,8 +357,8 @@ private:
                 .interrupt = 0,
             },
             .flags = {
-                .swap_xy = 0,
-                .mirror_x = 1,
+                .swap_xy = 1,
+                .mirror_x = 0,
                 .mirror_y = 1,
             },
         };

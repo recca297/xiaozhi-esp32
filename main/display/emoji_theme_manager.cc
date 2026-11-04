@@ -56,9 +56,9 @@ void EmojiThemeManager::Init() {
 
     // Load saved theme preference from NVS (defaults to EMOJI_THEME_ID_DBROBOT)
     Settings settings("display");
-    int saved_theme = settings.GetInt("emoji_theme", EMOJI_THEME_ID_DEFAULT);
+    int saved_theme = settings.GetInt("emoji_theme", EMOJI_THEME_ID_DBROBOT);
     if (saved_theme < 0 || saved_theme >= (int)themes_.size()) {
-        saved_theme = EMOJI_THEME_ID_DEFAULT;
+        saved_theme = EMOJI_THEME_ID_DBROBOT;
     }
     current_theme_id_ = static_cast<uint8_t>(saved_theme);
     ApplyCurrentTheme();
