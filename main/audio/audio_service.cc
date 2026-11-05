@@ -93,6 +93,11 @@ void AudioService::Initialize(AudioCodec* codec) {
             callbacks_.on_vad_change(speaking);
         }
     });
+    audio_engine_->OnDoaAngle([this](int angle) {
+        if (callbacks_.on_doa_change) {
+            callbacks_.on_doa_change(angle);
+        }
+    });
     audio_engine_->OnWakeWordDetected([this](const std::string& wake_word) {
         xEventGroupClearBits(event_group_, AS_EVENT_WAKE_WORD_RUNNING);
         if (callbacks_.on_wake_word_detected) {

@@ -32,6 +32,7 @@ public:
     virtual void OnWakeWordDetected(std::function<void(const std::string& wake_word)> callback) = 0;
     virtual void OnOutput(std::function<void(std::vector<int16_t>&& data)> callback) = 0;
     virtual void OnVadStateChange(std::function<void(bool speaking)> callback) = 0;
+    virtual void OnDoaAngle(std::function<void(int angle)> callback) {}
 
     virtual void EncodeWakeWordData() = 0;
     virtual bool GetWakeWordOpus(std::vector<uint8_t>& opus) = 0;

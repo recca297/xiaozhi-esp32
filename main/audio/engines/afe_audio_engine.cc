@@ -1,5 +1,6 @@
 #include "afe_audio_engine.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <string_view>
@@ -9,6 +10,7 @@
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <esp_vadn_models.h>
+#include <esp_afe_doa.h>
 
 #include "audio_service.h"
 #include "wake_words/custom_wake_word.h"
@@ -25,6 +27,10 @@ AfeAudioEngine::AfeAudioEngine() { event_group_ = xEventGroupCreate(); }
 
 AfeAudioEngine::~AfeAudioEngine() {
     custom_wake_word_.reset();
+    if (afe_doa_handle_ != nullptr) {
+        afe_doa_destroy(static_cast<afe_doa_handle_t*>(afe_doa_handle_));
+        afe_doa_handle_ = nullptr;
+    }
     if (afe_data_ != nullptr) {
         afe_iface_->destroy(afe_data_);
     }
@@ -113,18 +119,22 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
     }
 
     int ref_num = codec_->input_reference() ? 1 : 0;
-    std::string input_format;
-    for (int i = 0; i < codec_->input_channels() - ref_num; ++i) {
-        input_format.push_back('M');
+    int mic_num = codec_->input_channels() - ref_num;
+    std::string doa_input_format;
+    std::string afe_input_format;
+    for (int i = 0; i < mic_num; ++i) {
+        doa_input_format.push_back('M');
+        afe_input_format.push_back(i == 0 ? 'M' : 'N');
     }
     for (int i = 0; i < ref_num; ++i) {
-        input_format.push_back('R');
+        doa_input_format.push_back('R');
+        afe_input_format.push_back('R');
     }
 
     char* vad_model_name =
         models_ == nullptr ? nullptr : esp_srmodel_filter(models_, ESP_VADN_PREFIX, nullptr);
     afe_config_t* afe_config =
-        afe_config_init(input_format.c_str(), models_, AFE_TYPE_FD, AFE_MODE_LOW_COST);
+        afe_config_init(afe_input_format.c_str(), models_, AFE_TYPE_FD, AFE_MODE_LOW_COST);
     if (afe_config == nullptr) {
         ESP_LOGE(TAG, "Failed to create AFE configuration");
         return false;
@@ -132,7 +142,6 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
 
     afe_config->aec_init = codec_->input_reference();
     afe_config->aec_mode = AEC_MODE_FD_LOW_COST;
-    afe_config->aec_nlp_level = AEC_NLP_LEVEL_VERYAGGR;
     afe_config->ns_init = false;
     afe_config->vad_init = kUseAfeForVoiceProcessing;
     afe_config->vad_mode = VAD_MODE_0;
@@ -199,6 +208,21 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
         afe_iface_ = nullptr;
         afe_data_ = nullptr;
         return false;
+    }
+
+    if (mic_num >= 2) {
+        float mic_distance = 0.020f; // Default 20mm (0.02m)
+#ifdef AUDIO_MIC_DISTANCE_M
+        mic_distance = AUDIO_MIC_DISTANCE_M;
+#endif
+        int chunk_size = afe_iface_->get_fetch_chunksize(afe_data_);
+        afe_doa_handle_ = afe_doa_create(doa_input_format.c_str(), 16000, 10.0f, mic_distance, chunk_size);
+        if (afe_doa_handle_ != nullptr) {
+            ESP_LOGI(TAG, "AFE DOA initialized for format=%s, mic_dist=%.3fm, chunk=%d",
+                     doa_input_format.c_str(), mic_distance, chunk_size);
+        } else {
+            ESP_LOGW(TAG, "Failed to create AFE DOA handle");
+        }
     }
 
     if (wake_detector_ == WakeDetector::kWakeNet) {
@@ -272,6 +296,10 @@ void AfeAudioEngine::Feed(std::vector<int16_t>&& data) {
     size_t chunk_size = afe_iface_->get_feed_chunksize(afe_data_) * codec_->input_channels();
     while (input_buffer_.size() >= chunk_size) {
         afe_iface_->feed(afe_data_, input_buffer_.data());
+        if (afe_doa_handle_ != nullptr) {
+            std::lock_guard<std::mutex> doa_lock(doa_mutex_);
+            latest_raw_chunk_.assign(input_buffer_.begin(), input_buffer_.begin() + chunk_size);
+        }
         input_buffer_.erase(input_buffer_.begin(), input_buffer_.begin() + chunk_size);
     }
 }
@@ -302,7 +330,21 @@ void AfeAudioEngine::EnableVoiceProcessing(bool enable) {
         xEventGroupSetBits(event_group_, kVoiceProcessingEnabled);
     } else {
         xEventGroupClearBits(event_group_, kVoiceProcessingEnabled);
+        if (utterance_active_ && utterance_angles_.size() >= 2) {
+            std::sort(utterance_angles_.begin(), utterance_angles_.end());
+            int final_angle = utterance_angles_[utterance_angles_.size() / 2];
+            if (final_angle != last_doa_angle_ && doa_callback_) {
+                last_doa_angle_ = final_angle;
+                doa_callback_(final_angle);
+                ESP_LOGI(TAG, "Sentence DOA (on stop): %d deg (from %d samples)", final_angle,
+                         static_cast<int>(utterance_angles_.size()));
+            }
+        }
         is_speaking_ = false;
+        utterance_active_ = false;
+        silence_frames_ = 0;
+        speech_frame_count_ = 0;
+        utterance_angles_.clear();
     }
     UpdateActiveState();
 }
@@ -447,6 +489,68 @@ void AfeAudioEngine::ProcessingTask() {
         }
         if (kUseAfeForVoiceProcessing && (bits & kVoiceProcessingEnabled)) {
             HandleVoiceResult(result);
+        }
+
+        // 1. Wake word detected: calculate and update DOA immediately for the wake-word utterance
+        if (afe_doa_handle_ != nullptr && doa_callback_ && result->wakeup_state == WAKENET_DETECTED) {
+            std::vector<int16_t> local_raw;
+            {
+                std::lock_guard<std::mutex> doa_lock(doa_mutex_);
+                local_raw = latest_raw_chunk_;
+            }
+            if (!local_raw.empty()) {
+                float deg = afe_doa_process(static_cast<afe_doa_handle_t*>(afe_doa_handle_), local_raw.data());
+                int mapped_angle = static_cast<int>(deg + 0.5f) - 90;
+                if (mapped_angle < -90) mapped_angle = -90;
+                if (mapped_angle > 90) mapped_angle = 90;
+                last_doa_angle_ = mapped_angle;
+                doa_callback_(mapped_angle);
+                ESP_LOGI(TAG, "WakeNet DOA: deg=%.1f -> angle=%d", deg, mapped_angle);
+            }
+        }
+
+        // 2. Sentence-level DOA accumulation during conversation:
+        // When VAD=1 (speech), sample DOA every 2nd speech frame (~64ms) without updating UI.
+        // Ignore brief inter-word pauses (< ~320ms / 10 frames). Only finalize once the whole sentence ends.
+        if (afe_doa_handle_ != nullptr && doa_callback_ && (bits & kVoiceProcessingEnabled)) {
+            if (result->vad_state == VAD_SPEECH) {
+                utterance_active_ = true;
+                silence_frames_ = 0;
+                speech_frame_count_++;
+                if ((speech_frame_count_ % 2 == 1) && utterance_angles_.size() < 200) {
+                    std::vector<int16_t> local_raw;
+                    {
+                        std::lock_guard<std::mutex> doa_lock(doa_mutex_);
+                        local_raw = latest_raw_chunk_;
+                    }
+                    if (!local_raw.empty()) {
+                        float deg = afe_doa_process(static_cast<afe_doa_handle_t*>(afe_doa_handle_), local_raw.data());
+                        int mapped_angle = static_cast<int>(deg + 0.5f) - 90;
+                        if (mapped_angle < -90) mapped_angle = -90;
+                        if (mapped_angle > 90) mapped_angle = 90;
+                        utterance_angles_.push_back(mapped_angle);
+                    }
+                }
+            } else if (result->vad_state == VAD_SILENCE && utterance_active_) {
+                silence_frames_++;
+                // Wait for ~320ms (10 * 32ms) of continuous silence to confirm the whole sentence has ended
+                if (silence_frames_ >= 10) {
+                    utterance_active_ = false;
+                    silence_frames_ = 0;
+                    speech_frame_count_ = 0;
+                    if (utterance_angles_.size() >= 2) {
+                        std::sort(utterance_angles_.begin(), utterance_angles_.end());
+                        int final_angle = utterance_angles_[utterance_angles_.size() / 2];
+                        if (final_angle != last_doa_angle_) {
+                            last_doa_angle_ = final_angle;
+                            doa_callback_(final_angle);
+                            ESP_LOGI(TAG, "Sentence DOA: %d deg (from %d samples)", final_angle,
+                                     static_cast<int>(utterance_angles_.size()));
+                        }
+                    }
+                    utterance_angles_.clear();
+                }
+            }
         }
     }
 }

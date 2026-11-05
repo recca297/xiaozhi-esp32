@@ -25,6 +25,8 @@
 #include <esp_lvgl_port.h>
 #include <lvgl.h>
 
+LV_FONT_DECLARE(font_noto_sans_basic_30_4);
+
 #define TAG "WaveshareEsp32s3TouchAMOLED1inch75"
 
 class Pmic : public Axp2101 {
@@ -122,6 +124,10 @@ static esp_err_t co5300_draw_bitmap_rot270_cw(esp_lcd_panel_t* panel, int x_star
 
 // 在waveshare_amoled_1_75类之前添加新的显示类
 class CustomLcdDisplay : public SpiLcdDisplay {
+private:
+    lv_obj_t* doa_label_ = nullptr;
+    int last_doa_angle_ = 0;
+
 public:
     static void rounder_event_cb(lv_event_t* e) {
         lv_area_t* area = (lv_area_t* )lv_event_get_param(e);
@@ -170,6 +176,32 @@ public:
         lv_obj_set_style_pad_left(status_bar_, LV_HOR_RES*  0.1, 0);
         lv_obj_set_style_pad_right(status_bar_, LV_HOR_RES*  0.1, 0);
         lv_display_add_event_cb(display_, rounder_event_cb, LV_EVENT_INVALIDATE_AREA, NULL);
+
+        // DOA angle display label near top status bar
+        doa_label_ = lv_label_create(lv_screen_active());
+        lv_label_set_text(doa_label_, "DOA: 0");
+        lv_obj_set_style_text_font(doa_label_, &font_noto_sans_basic_30_4, 0);
+        lv_obj_set_style_text_color(doa_label_, lv_color_hex(0x00FF88), 0);
+        lv_obj_align(doa_label_, LV_ALIGN_TOP_MID, 0, 50);
+    }
+
+    virtual void SetDoaAngle(int angle) override {
+        if (Application::GetInstance().GetDeviceState() == kDeviceStateIdle) {
+            angle = 0;
+        }
+        if (angle < -90) angle = -90;
+        if (angle > 90) angle = 90;
+        if (angle == last_doa_angle_ && doa_label_ != nullptr) {
+            return;
+        }
+        last_doa_angle_ = angle;
+
+        DisplayLockGuard lock(this);
+        if (doa_label_ != nullptr) {
+            char buf[32];
+            snprintf(buf, sizeof(buf), "DOA: %d", angle);
+            lv_label_set_text(doa_label_, buf);
+        }
     }
 };
 
@@ -416,7 +448,8 @@ public:
             AUDIO_CODEC_PA_PIN, 
             AUDIO_CODEC_ES8311_ADDR, 
             AUDIO_CODEC_ES7210_ADDR, 
-            AUDIO_INPUT_REFERENCE);
+            AUDIO_INPUT_REFERENCE,
+            30.0f, -1, 0.0f, 5.0f, 2); // 2 microphone channels (MMR mode for DOA)
         return &audio_codec;
     }
 

@@ -10,10 +10,11 @@ BoxAudioCodec::BoxAudioCodec(void* i2c_master_handle, int input_sample_rate, int
                              gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout,
                              gpio_num_t din, gpio_num_t pa_pin, uint8_t es8311_addr,
                              uint8_t es7210_addr, bool input_reference, float input_gain,
-                             int reference_gain_channel, float reference_gain, float pa_voltage) {
-    duplex_ = true;                              // 是否双工
-    input_reference_ = input_reference;          // 是否使用参考输入，实现回声消除
-    input_channels_ = input_reference_ ? 2 : 1;  // 输入通道数
+                             int reference_gain_channel, float reference_gain, float pa_voltage,
+                             int microphone_channels) {
+    duplex_ = true;                                                      // 是否双工
+    input_reference_ = input_reference;                                  // 是否使用参考输入，实现回声消除
+    input_channels_ = microphone_channels + (input_reference_ ? 1 : 0);  // 输入通道数 (e.g. MMR = 2 mics + 1 ref)
     input_sample_rate_ = input_sample_rate;
     output_sample_rate_ = output_sample_rate;
     input_gain_ = input_gain;
@@ -196,19 +197,40 @@ void BoxAudioCodec::EnableInput(bool enable) {
         return;
     }
     if (enable) {
+        int mic_count = input_channels_ - (input_reference_ ? 1 : 0);
+        uint16_t mask = 0;
+        if (mic_count >= 2) {
+            // For dual-mic boards like Waveshare AMOLED 1.75:
+            // TDM Slot 0: MIC1 (Front Left)
+            // TDM Slot 1: MIC3 (Echo Ref) - captured if input_reference_ is true
+            // TDM Slot 2: MIC2 (Front Right)
+            // In esp_codec_dev, channel_mask specifies which TDM slots are read.
+            // When opening with channel_mask = Slot0 | Slot2 | Slot1, channels are delivered interleaved.
+            mask = static_cast<uint16_t>(ESP_CODEC_DEV_MAKE_CHANNEL_MASK(0) | ESP_CODEC_DEV_MAKE_CHANNEL_MASK(2));
+            if (input_reference_) {
+                mask |= static_cast<uint16_t>(ESP_CODEC_DEV_MAKE_CHANNEL_MASK(1));
+            }
+        } else {
+            mask = static_cast<uint16_t>(ESP_CODEC_DEV_MAKE_CHANNEL_MASK(0));
+            if (input_reference_) {
+                mask |= static_cast<uint16_t>(ESP_CODEC_DEV_MAKE_CHANNEL_MASK(1));
+            }
+        }
         esp_codec_dev_sample_info_t fs = {
             .bits_per_sample = 16,
             .channel = 4,
-            .channel_mask = ESP_CODEC_DEV_MAKE_CHANNEL_MASK(0),
+            .channel_mask = mask,
             .sample_rate = (uint32_t)output_sample_rate_,
             .mclk_multiple = 0,
         };
-        if (input_reference_) {
-            fs.channel_mask |= ESP_CODEC_DEV_MAKE_CHANNEL_MASK(1);
-        }
         ESP_ERROR_CHECK(esp_codec_dev_open(input_dev_, &fs));
         ESP_ERROR_CHECK(esp_codec_dev_set_in_channel_gain(
             input_dev_, ESP_CODEC_DEV_MAKE_CHANNEL_MASK(0), input_gain_));
+        if (mic_count >= 2) {
+            // Physical MIC2 uses gain mask channel 1 (ES7210_MIC2_GAIN_REG44)
+            ESP_ERROR_CHECK(esp_codec_dev_set_in_channel_gain(
+                input_dev_, ESP_CODEC_DEV_MAKE_CHANNEL_MASK(1), input_gain_));
+        }
         if (input_reference_ && reference_gain_channel_ >= 0) {
             // ES7210 gain masks use physical MIC numbering, which differs
             // from the TDM slot order (MIC1, MIC3, MIC2, MIC4).
@@ -247,6 +269,13 @@ void BoxAudioCodec::EnableOutput(bool enable) {
 int BoxAudioCodec::Read(int16_t* dest, int samples) {
     if (input_enabled_) {
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_codec_dev_read(input_dev_, (void*)dest, samples * sizeof(int16_t)));
+        if (input_channels_ == 3 && input_reference_) {
+            // TDM slots read from ES7210: [Slot 0 (MIC1), Slot 1 (REF), Slot 2 (MIC2)].
+            // Swap slot 1 and slot 2 so dest buffer is [MIC1, MIC2, REF] to match ESP-SR "MMR" input format.
+            for (int i = 0; i < samples; i += 3) {
+                std::swap(dest[i + 1], dest[i + 2]);
+            }
+        }
     }
     return samples;
 }

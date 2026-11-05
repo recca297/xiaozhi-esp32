@@ -42,6 +42,7 @@ public:
     void OnWakeWordDetected(std::function<void(const std::string& wake_word)> callback) override;
     void OnOutput(std::function<void(std::vector<int16_t>&& data)> callback) override;
     void OnVadStateChange(std::function<void(bool speaking)> callback) override;
+    void OnDoaAngle(std::function<void(int angle)> callback) override { doa_callback_ = std::move(callback); }
 
     void EncodeWakeWordData() override;
     bool GetWakeWordOpus(std::vector<uint8_t>& opus) override;
@@ -70,6 +71,7 @@ private:
     StackType_t* processing_task_stack_ = nullptr;
     int frame_samples_ = 0;
     bool is_speaking_ = false;
+    void* afe_doa_handle_ = nullptr;
     std::atomic<bool> device_aec_enabled_{false};
     // Deferred AFE buffer reset, performed by ProcessingTask (see UpdateActiveState)
     std::atomic<bool> reset_pending_{false};
@@ -92,6 +94,14 @@ private:
     std::function<void(const std::string&)> wake_word_detected_callback_;
     std::function<void(std::vector<int16_t>&&)> output_callback_;
     std::function<void(bool)> vad_state_change_callback_;
+    std::function<void(int)> doa_callback_;
+    std::mutex doa_mutex_;
+    std::vector<int16_t> latest_raw_chunk_;
+    int last_doa_angle_ = 0;
+    std::vector<int> utterance_angles_;
+    bool utterance_active_ = false;
+    int silence_frames_ = 0;
+    int speech_frame_count_ = 0;
 
     TaskHandle_t wake_word_encode_task_ = nullptr;
     StaticTask_t* wake_word_encode_task_buffer_ = nullptr;

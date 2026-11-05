@@ -90,6 +90,14 @@ void Application::Initialize() {
     callbacks.on_vad_change = [this](bool speaking) {
         xEventGroupSetBits(event_group_, MAIN_EVENT_VAD_CHANGE);
     };
+    callbacks.on_doa_change = [this](int angle) {
+        Schedule([angle]() {
+            auto display = Board::GetInstance().GetDisplay();
+            if (display) {
+                display->SetDoaAngle(angle);
+            }
+        });
+    };
     callbacks.on_playback_drained = [this]() {
         xEventGroupSetBits(event_group_, MAIN_EVENT_PLAYBACK_DRAINED);
     };
@@ -100,6 +108,14 @@ void Application::Initialize() {
 
     // Add state change listeners
     state_machine_.AddStateChangeListener([this](DeviceState old_state, DeviceState new_state) {
+        if (new_state == kDeviceStateIdle) {
+            Schedule([]() {
+                auto display = Board::GetInstance().GetDisplay();
+                if (display) {
+                    display->SetDoaAngle(0);
+                }
+            });
+        }
         xEventGroupSetBits(event_group_, MAIN_EVENT_STATE_CHANGED);
     });
 
@@ -1049,6 +1065,7 @@ void Application::HandleStateChangedEvent() {
             // otherwise wipe the status, emotion, and chat message.
             if (last_error_message_.empty()) {
                 display->SetStatus(Lang::Strings::STANDBY);
+                display->SetDoaAngle(0);
                 display->ClearChatMessages();  // Clear messages first
                 display->SetEmotion(
                     "neutral");  // Then set emotion (wechat mode checks child count)
